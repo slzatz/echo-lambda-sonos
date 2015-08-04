@@ -1,0 +1,7 @@
+*.pyc
+*.swp
+*.zip
+settings.py
+config.py
+config.js
+
