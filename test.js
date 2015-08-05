@@ -1,8 +1,11 @@
 var alexa = require('alexa-app');
 var http = require('http');
-
+var AWS = require('aws-sdk');
 // config.App_ID contains the app id for the skill
 var config = require('./config');
+
+var sqs = new AWS.SQS({region : 'us-east-1'});
+var QUEUE_URL = config.QUEUE_URL;
 
 var app = new alexa.app('test');
 
@@ -57,8 +60,9 @@ app.intent('Shuffle',
 
         var number = request.slot('number');
         var artist = request.slot('artist');
+        var msg = {action:"shuffle", artist:artist, number:number};
       
-        makeSonosRequest(artist, number, function sonosResponseCallback(err) { 
+        sendSQS(msg, function callback(err) {
 
           if (err) {
               console.log("Sorry, something went wrong -- maybe Steve's Amazon AWS site seems to be down");
@@ -68,16 +72,27 @@ app.intent('Shuffle',
               response.send();
         }
     }); 
+        /*makeSonosRequest(artist, number, function sonosResponseCallback(err) { 
+
+          if (err) {
+              console.log("Sorry, something went wrong -- maybe Steve's Amazon AWS site seems to be down");
+          } else {
+              console.log("I will start shuffling " + number + " songs from " + artist + " in a few moments");
+              //sendSQS(msg);
+              response.say("I will start shuffling " + number + " songs from " + artist + " in a few moments");
+              response.send();
+        }
+    }); */
     
       return false;
 	}
 );
 // Output the schema - app.schema()  outputs the schema - not sure that providng the schema to the framework any
-//console.log( "\n\nSCHEMA:\n\n"+app.schema()+"\n\n" );
+// console.log( "\n\nSCHEMA:\n\n"+app.schema()+"\n\n" );
 // Output sample utterances - as above, I think the only use of utterances in the framework is to produce a combinatorial output
-console.log( "\n\nUTTERANCES:\n\n"+app.utterances()+"\n\n" );
+// console.log( "\n\nUTTERANCES:\n\n"+app.utterances()+"\n\n" );
 
-function makeSonosRequest(arg1,arg2, sonosResponseCallback) {
+function makeSonosRequest(arg1, arg2, sonosResponseCallback) {
 
     var endpoint = config.APP_URI
     var queryString = '/echo';
@@ -105,6 +120,24 @@ function makeSonosRequest(arg1,arg2, sonosResponseCallback) {
         console.log("Communications error: " + e.message);
         sonosResponseCallback(new Error(e.message));
     });
+}
+
+function sendSQS(msg, callback) {
+  console.log("message = " + JSON.stringify(msg));
+  var params = {
+    MessageBody: JSON.stringify(msg),
+    QueueUrl: QUEUE_URL
+  };
+  sqs.sendMessage(params, function(err,data){
+  
+  if(err) {
+      console.log('error:',"Failed to Send SQS Message" + err);
+     callback(new Error(err));
+  }else{
+      console.log('data:',data.MessageId);
+      callback(null);
+    }
+  });
 }
 
 exports.handler = app.lambda();
