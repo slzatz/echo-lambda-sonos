@@ -72,17 +72,34 @@ app.intent('Shuffle',
               response.send();
         }
     }); 
-        /*makeSonosRequest(artist, number, function sonosResponseCallback(err) { 
+    
+      return false;
+	}
+);
+
+app.intent('Deborah',
+    // The lines below that define slots and utterances can be eliminated unless you are trying to generate them
+
+	{
+		"slots":{number:"NUMBER"}, 
+		"utterances":[ "play {1-10|number} of Deborah's albums" ]
+	},
+
+	function(request,response) {
+
+        var number = request.slot('number');
+        var msg = {action:"deborah", number:number};
+      
+        sendSQS(msg, function callback(err) {
 
           if (err) {
               console.log("Sorry, something went wrong -- maybe Steve's Amazon AWS site seems to be down");
           } else {
-              console.log("I will start shuffling " + number + " songs from " + artist + " in a few moments");
-              //sendSQS(msg);
-              response.say("I will start shuffling " + number + " songs from " + artist + " in a few moments");
+              console.log("I will start playing" + number + "  of Deborah's albums in a few moments");
+              response.say("I will start playing" + number + " of Deborah's albums in a few moments");
               response.send();
         }
-    }); */
+    }); 
     
       return false;
 	}
