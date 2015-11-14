@@ -6,16 +6,9 @@ WhatIsPlaying what is playing now
 WhatIsPlaying what song is playing now
 WhatIsPlaying what is playing
 WhatIsPlaying what song is playing
-Skip skip
-Skip next
-Skip skip this song
+Skip skip song
 Skip next song
-Louder louder
-Louder loud
-Quieter lower
-Quieter quieter
-Quieter quiet
-Quieter softer
+Skip skip this song
 TurnTheVolume Turn the volume {volume}
 TurnTheVolume Turn {volume} the volume
 '''
@@ -27,6 +20,11 @@ from time import time
 from datetime import datetime
 
 appVersion = "1.0"
+
+def send_sqs(**kw):
+    sqs = boto3.resource('sqs')
+    queue = sqs.get_queue_by_name(QueueName='echo_sonos')
+    sqs_response = queue.send_message(MessageBody=json.dumps(kw))
 
 def lambda_handler(event, context):
 	#print event['session']
@@ -64,9 +62,10 @@ def intent_request(session, request):
 
         artist = request['intent']['slots']['artist']['value']
 
-        sqs = boto3.resource('sqs')
-        queue = sqs.get_queue_by_name(QueueName='echo_sonos')
-        sqs_response = queue.send_message(MessageBody=json.dumps({'action':'radio','artist':artist}))
+        #sqs = boto3.resource('sqs')
+        #queue = sqs.get_queue_by_name(QueueName='echo_sonos')
+        #sqs_response = queue.send_message(MessageBody=json.dumps({'action':'radio','artist':artist}))
+        send_sqs(action='radio', artist=artist)
 
         output_speech = artist + " radio will start playing soon"
         output_type = 'PlainText'
@@ -80,9 +79,10 @@ def intent_request(session, request):
         number = request['intent']['slots']['number']['value']
         artist = request['intent']['slots']['artist']['value']
 
-        sqs = boto3.resource('sqs')
-        queue = sqs.get_queue_by_name(QueueName='echo_sonos')
-        sqs_response = queue.send_message(MessageBody=json.dumps({"action":"shuffle", "artist":artist,"number":number}))
+        #sqs = boto3.resource('sqs')
+        #queue = sqs.get_queue_by_name(QueueName='echo_sonos')
+        #sqs_response = queue.send_message(MessageBody=json.dumps({"action":"shuffle", "artist":artist,"number":number}))
+        send_sqs(action='shuffle', artist=artist, number=number)
 
         output_speech = "I will shuffle " + str(number) + " songs from " + artist
         output_type = 'PlainText'
@@ -91,13 +91,27 @@ def intent_request(session, request):
 
         return response
 
+    elif intent ==  "Select":
+
+        number = 5
+        artist = request['intent']['slots']['myartist']['value']
+
+        send_sqs(action='shuffle', artist=artist, number=number)
+
+        output_speech = "I will select " + str(number) + " songs from " + artist
+        output_type = 'PlainText'
+
+        response = {'outputSpeech': {'type':output_type,'text':output_speech},'shouldEndSession':True}
+
+        return response
     elif intent ==  "Deborah":
 
         number = request['intent']['slots']['number']['value']
 
-        sqs = boto3.resource('sqs')
-        queue = sqs.get_queue_by_name(QueueName='echo_sonos')
-        sqs_response = queue.send_message(MessageBody=json.dumps({"action":"deborah", "number":number}))
+        #sqs = boto3.resource('sqs')
+        #queue = sqs.get_queue_by_name(QueueName='echo_sonos')
+        #sqs_response = queue.send_message(MessageBody=json.dumps({"action":"deborah", "number":number}))
+        send_sqs(action='deborah', number=number)
 
         output_speech = "I will play " + str(number) + " of Deborah's albums"
         output_type = 'PlainText'
@@ -143,9 +157,10 @@ def intent_request(session, request):
 
     elif intent == "Skip":
 
-        sqs = boto3.resource('sqs')
-        queue = sqs.get_queue_by_name(QueueName='echo_sonos')
-        sqs_response = queue.send_message(MessageBody=json.dumps({"action":"skip"}))
+        #sqs = boto3.resource('sqs')
+        #queue = sqs.get_queue_by_name(QueueName='echo_sonos')
+        #sqs_response = queue.send_message(MessageBody=json.dumps({"action":"skip"}))
+        send_sqs(action='skip')
 
         output_speech = "skipped"
         output_type = 'PlainText'
@@ -165,9 +180,10 @@ def intent_request(session, request):
 
         if action:
 
-            sqs = boto3.resource('sqs')
-            queue = sqs.get_queue_by_name(QueueName='echo_sonos')
-            sqs_response = queue.send_message(MessageBody=json.dumps({'action':action}))
+            #sqs = boto3.resource('sqs')
+            #queue = sqs.get_queue_by_name(QueueName='echo_sonos')
+            #sqs_response = queue.send_message(MessageBody=json.dumps({'action':action}))
+            send_sqs(action=action)
 
             output_speech = "The music will {}".format(action)
 
@@ -213,9 +229,10 @@ def intent_request(session, request):
 
         if action:
 
-            sqs = boto3.resource('sqs')
-            queue = sqs.get_queue_by_name(QueueName='echo_sonos')
-            sqs_response = queue.send_message(MessageBody=json.dumps({'action':action}))
+            #sqs = boto3.resource('sqs')
+            #queue = sqs.get_queue_by_name(QueueName='echo_sonos')
+            #sqs_response = queue.send_message(MessageBody=json.dumps({'action':action}))
+            send_sqs(action=action)
 
             output_speech = "I will make the volume {}".format(action)
 
