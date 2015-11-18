@@ -149,7 +149,7 @@ def intent_request(session, request):
             output_speech = "The song is {}. The artist is {} and the album is {}.".format(last_song[1], last_song[2], last_song[3])
 
         else:
-            out_speech = "Nothing appears to be playing right now, Steve"
+            output_speech = "Nothing appears to be playing right now, Steve"
 
         output_type = 'PlainText'
         response = {'outputSpeech': {'type':output_type,'text':output_speech},'shouldEndSession':True}
