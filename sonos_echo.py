@@ -17,7 +17,7 @@ import boto3
 from boto3.dynamodb.conditions import Attr, Key
 import json
 from decimal import Decimal
-from time import time
+import time
 from datetime import datetime
 
 appVersion = "1.0"
