@@ -70,22 +70,37 @@ def intent_request(session, request):
 
         return response
 
-    elif intent ==  "Track":
+    elif intent ==  "PlayTrack":
 
-        title = request['intent']['slots']['tracktitle']['value']
+        trackinfo = request['intent']['slots']['trackinfo']['value']
 
         dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
         table = dynamodb.Table('amazon_music')
 
-        send_sqs(action='track', title=title)
+        send_sqs(action='play', trackinfo=trackinfo)
 
-        output_speech = "I will try to find " + title + "."
+        output_speech = "I will try to play " + trackinfo + "."
         output_type = 'PlainText'
 
         response = {'outputSpeech': {'type':output_type,'text':output_speech},'shouldEndSession':True}
 
         return response
 
+    elif intent ==  "AddTrack":
+
+        trackinfo = request['intent']['slots']['trackinfo']['value']
+
+        dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
+        table = dynamodb.Table('amazon_music')
+
+        send_sqs(action='add', trackinfo=trackinfo)
+
+        output_speech = "I will try to add " + trackinfo + " to the queue."
+        output_type = 'PlainText'
+
+        response = {'outputSpeech': {'type':output_type,'text':output_speech},'shouldEndSession':True}
+
+        return response
     # keeping the below for the moment because it's an example of using two slots
     #elif intent ==  "Shuffle":
 
