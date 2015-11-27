@@ -1,15 +1,24 @@
 '''
 Radio select {myartist} radio
-Track play {after the gold rush|tracktitle} #this is using AMAZON.LITERAL - generally not recommended but really the only choice here
-Shuffle {myartist}
-Deborah play {number} of Deborah's albums
+Shuffle shuffle {myartist}
+PlayTrack play {after the gold rush|trackinfo}
+AddTrack add {after the gold rush|trackinfo}
+PlayAlbum play album {myalbum}
 WhatIsPlaying what is playing now
 WhatIsPlaying what song is playing now
 WhatIsPlaying what is playing
 WhatIsPlaying what song is playing
-Skip skip song
-Skip next song
+Skip skip
+Skip next
 Skip skip this song
+Skip next song
+Pause {pauseorresume} 
+Louder louder
+Louder loud
+Quieter lower
+Quieter quieter
+Quieter quiet
+Quieter softer
 TurnTheVolume Turn the volume {volume}
 TurnTheVolume Turn {volume} the volume
 '''
@@ -64,6 +73,22 @@ def intent_request(session, request):
         send_sqs(action='radio', artist=artist)
 
         output_speech = artist + " radio will start playing soon"
+        output_type = 'PlainText'
+
+        response = {'outputSpeech': {'type':output_type,'text':output_speech},'shouldEndSession':True}
+
+        return response
+
+    elif intent ==  "PlayAlbum":
+
+        album = request['intent']['slots']['myalbum']['value']
+
+        dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
+        table = dynamodb.Table('amazon_music')
+
+        send_sqs(action='play_album', album=album)
+
+        output_speech = "I will try to play album " + album + "."
         output_type = 'PlainText'
 
         response = {'outputSpeech': {'type':output_type,'text':output_speech},'shouldEndSession':True}
@@ -174,13 +199,13 @@ def intent_request(session, request):
         response = {'outputSpeech': {'type':output_type,'text':output_speech},'shouldEndSession':True}
         return response
 
-    elif intent == "PausePlay":
+    elif intent == "PauseResume":
 
         pauseorplay = request['intent']['slots']['pauseorplay']['value']
 
         if pauseorplay in ('pause','stop'):
             action = 'pause'
-        elif pauseorplay in ('play','resume'):
+        elif pauseorplay in ('unpause','resume'):
             action = 'resume'
         else:
             action = None
