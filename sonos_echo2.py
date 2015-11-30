@@ -1,8 +1,8 @@
 '''
 Invoked by "Sonos"
-PlayStation play {myartist} radio
-PlayStation play {myartist} pandora
-PlayStation play {myartist} station
+PlayStation play {mystation} radio
+PlayStation play {mystation} pandora
+PlayStation play {mystation} station
 PlayTrack play {mytitle} by {myartist}
 AddTrack add {mytitle} by {myartist}
 Shuffle shuffle {myartist}
@@ -59,10 +59,10 @@ def intent_request(session, request):
 
     if intent ==  "PlayStation":
 
-        artist = request['intent']['slots']['myartist']['value']
-        send_sqs(action='radio', artist=artist)
+        station = request['intent']['slots']['mystation']['value']
+        send_sqs(action='radio', station=station)
 
-        output_speech = artist + " radio will start playing soon"
+        output_speech = station + " radio will start playing soon"
         response = {'outputSpeech': {'type':'PlainText','text':output_speech},'shouldEndSession':True}
         return response
 
