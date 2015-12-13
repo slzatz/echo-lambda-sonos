@@ -23,14 +23,24 @@ import time
 
 appVersion = '1.0'
 
+#s3 = boto3.client('s3')
+#response = s3.get_object(Bucket='sonos-scrobble', Key='location')
+#body = response['Body']
+#queue_name = 'echo_sonos_ct' if body.read()=='ct' else 'echo_sonos'
+
 def send_sqs(**kw):
+    s3 = boto3.client('s3')
+    response = s3.get_object(Bucket='sonos-scrobble', Key='location')
+    body = response['Body']
+    queue_name = 'echo_sonos_ct' if body.read()=='ct' else 'echo_sonos'
     sqs = boto3.resource('sqs')
-    queue = sqs.get_queue_by_name(QueueName='echo_sonos')
+    # below is the action queue; may also need storage queue or use S3, e.g., echo_sonos_history
+    queue = sqs.get_queue_by_name(QueueName=queue_name)
     sqs_response = queue.send_message(MessageBody=json.dumps(kw))
 
 def lambda_handler(event, context):
-	#print event['session']
-    print event
+    print event['session']
+    #print event
     session = event['session']
     request = event['request']
     requestType = request['type']
@@ -126,9 +136,13 @@ def intent_request(session, request):
 
     elif intent == "WhatIsPlaying":
 
+        s3 = boto3.client('s3')
+        response = s3.get_object(Bucket='sonos-scrobble', Key='location')
+        body = response['Body']
+        location = body.read()
         dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
         table = dynamodb.Table('scrobble_new')
-        result = table.query(KeyConditionExpression=Key('location').eq('nyc'), ScanIndexForward=False, Limit=1) #by default the sort order is ascending
+        result = table.query(KeyConditionExpression=Key('location').eq(location), ScanIndexForward=False, Limit=1) #by default the sort order is ascending
 
         if result['Count']:
             track = result['Items'][0]
@@ -151,11 +165,11 @@ def intent_request(session, request):
 
     elif intent == "PauseResume":
 
-        pauseorplay = request['intent']['slots']['pauseorplay']['value']
+        pauseorresume = request['intent']['slots']['pauseorresume']['value']
 
-        if pauseorplay in ('pause','stop'):
+        if pauseorresume in ('pause','stop'):
             action = 'pause'
-        elif pauseorplay in ('unpause','resume'):
+        elif pauseorresume in ('unpause','resume'):
             action = 'resume'
         else:
             action = None
@@ -164,7 +178,7 @@ def intent_request(session, request):
 
             send_sqs(action=action)
 
-            output_speech = "The music will {}".format(action)
+            output_speech = "The music will {}".format(pauseorresume)
 
         else:
             output_speech = "I have no idea what you said."
