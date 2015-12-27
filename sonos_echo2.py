@@ -14,6 +14,10 @@ PlayAlbum play album {myalbum}
 PauseResume {pauseorresume} the music
 TurnTheVolume Turn the volume {volume}
 TurnTheVolume Turn {volume} the volume
+SetLocation Set location to {location}
+SetLocation I am in {location}
+GetLocation What is the current location:w
+
 '''
 import boto3
 from boto3.dynamodb.conditions import Key
@@ -23,24 +27,24 @@ import time
 
 appVersion = '1.0'
 
-#s3 = boto3.client('s3')
-#response = s3.get_object(Bucket='sonos-scrobble', Key='location')
-#body = response['Body']
-#queue_name = 'echo_sonos_ct' if body.read()=='ct' else 'echo_sonos'
-
 def send_sqs(**kw):
-    s3 = boto3.client('s3')
-    response = s3.get_object(Bucket='sonos-scrobble', Key='location')
-    body = response['Body']
-    queue_name = 'echo_sonos_ct' if body.read()=='ct' else 'echo_sonos'
+
+    # The  below also works
+    #s3 = boto3.client('s3')
+    #response = s3.get_object(Bucket='sonos-scrobble', Key='location')
+    #body = response['Body']
+
+    s3 = boto3.resource('s3')
+    object = s3.Object('sonos-scrobble','location')
+    location = object.get()['Body'].read()
+    queue_name = 'echo_sonos_ct' if location=='ct' else 'echo_sonos'
+
     sqs = boto3.resource('sqs')
     # below is the action queue; may also need storage queue or use S3, e.g., echo_sonos_history
     queue = sqs.get_queue_by_name(QueueName=queue_name)
     sqs_response = queue.send_message(MessageBody=json.dumps(kw))
 
 def lambda_handler(event, context):
-    print event['session']
-    #print event
     session = event['session']
     request = event['request']
     requestType = request['type']
@@ -209,6 +213,39 @@ def intent_request(session, request):
         response = {'outputSpeech': {'type':'PlainText','text':output_speech},'shouldEndSession':True}
         return response
 
+    elif intent == "SetLocation":
+
+        s3 = boto3.resource('s3')
+        object = s3.Object('sonos-scrobble','location')
+
+        location = request['intent']['slots']['location']['value']
+
+        if location.lower() in "new york city":
+            object.put(Body='nyc')
+            output_speech = "I will set the location to New York City"
+
+        elif location.lower() in ('westport', 'connecticut'):
+            object.put(Body='ct')
+            output_speech = "I will set the location to Connecticut"
+
+        else:
+            output_speech = "I have no idea where you want to set the location."
+
+        response = {'outputSpeech': {'type':'PlainText','text':output_speech},'shouldEndSession':True}
+        return response
+
+     elif intent == "GetLocation":
+
+        s3 = boto3.resource('s3')
+        object = s3.Object('sonos-scrobble','location')
+        location = object.get()['Body'].read()
+
+        output_speech = "The location is currently {}".format("New York City" if location == 'nyc' else "Westport, Connecticut")
+
+        response = {'outputSpeech': {'type':'PlainText','text':'skipped'},'shouldEndSession':True}
+        return response
+
     else:
         output_speech = "I couldn't tell which type of intent request that was.  Try again."
         response = {'outputSpeech': {'type':'PlainText','text':output_speech},'shouldEndSession':False}
+        return response
