@@ -234,7 +234,7 @@ def intent_request(session, request):
         response = {'outputSpeech': {'type':'PlainText','text':output_speech},'shouldEndSession':True}
         return response
 
-     elif intent == "GetLocation":
+    elif intent == "GetLocation":
 
         s3 = boto3.resource('s3')
         object = s3.Object('sonos-scrobble','location')
