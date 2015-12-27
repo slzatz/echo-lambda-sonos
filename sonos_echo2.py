@@ -242,7 +242,7 @@ def intent_request(session, request):
 
         output_speech = "The location is currently {}".format("New York City" if location == 'nyc' else "Westport, Connecticut")
 
-        response = {'outputSpeech': {'type':'PlainText','text':'skipped'},'shouldEndSession':True}
+        response = {'outputSpeech': {'type':'PlainText','text':output_speech},'shouldEndSession':True}
         return response
 
     else:
