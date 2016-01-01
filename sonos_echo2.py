@@ -16,7 +16,7 @@ TurnTheVolume Turn the volume {volume}
 TurnTheVolume Turn {volume} the volume
 SetLocation Set location to {location}
 SetLocation I am in {location}
-GetLocation What is the current location:w
+GetLocation What is the current location
 
 '''
 import boto3
@@ -89,22 +89,27 @@ def intent_request(session, request):
         response = {'outputSpeech': {'type':'PlainText','text':output_speech},'shouldEndSession':True}
         return response
 
-    elif intent ==  "PlayTrack":
-
+    elif intent ==  "PlayTrack" or intent == "AddTrack":
+        # idea is that artist may be missing, eg, 'play campaigner' v. 'play campaigner by neil young'
+        # I think I should experiment with passing artist and title separately and not together although 
+        # working reasonably well.  All this goes for add track too.
         try:
             artist = request['intent']['slots']['myartist']['value']
         except KeyError:
             artist = ''
 
         title = request['intent']['slots']['mytitle']['value']
-        trackinfo = "{} {}".format(artist, title)
-        send_sqs(action='play', trackinfo=trackinfo)
+        #trackinfo = "{} {}".format(artist, title)
+        #send_sqs(action='play', trackinfo=trackinfo)
+        action = 'play' if intent=="PlayTrack" else 'add'
+        send_sqs(action=action, title=title, artist=artist)
 
-        output_speech = "I will try to play " + trackinfo + "."
+        #output_speech = "I will try to play " + trackinfo + "."
+        output_speech = "I will try to play {}".format(title) + (" by {}".format(artist) if artist else '')
         response = {'outputSpeech': {'type':'PlainText','text':output_speech},'shouldEndSession':True}
         return response
 
-    elif intent ==  "AddTrack":
+    elif intent ==  "AddTrackzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz":
 
         try:
             artist = request['intent']['slots']['myartist']['value']
