@@ -1,23 +1,35 @@
 '''
-Invoked by "Sonos"
 PlayStation play {mystation} radio
 PlayStation play {mystation} pandora
 PlayStation play {mystation} station
 PlayTrack play {mytitle} by {myartist}
+PlayTrack play {mytitle}
 AddTrack add {mytitle} by {myartist}
+AddTrack add {mytitle}
+AddTrack add {mytitle} to the queue
+AddTrack add {mytitle} by {myartist} to the queue
 Shuffle shuffle {myartist}
+Shuffle play some {myartist}
+Shuffle play some music from {myartist}
+SetShuffleNumber Set shuffle number to {mynumber}
+GetShuffleNumber What is the shuffle number
 WhatIsPlaying what is playing
 WhatIsPlaying what song is playing
 Skip skip
 Skip next
+Skip skip song
+Skip next song
 PlayAlbum play album {myalbum}
+PlayAlbum play the album {myalbum}
 PauseResume {pauseorresume} the music
+PauseResume {pauseorresume} the radio
+PauseResume {pauseorresume} sonos
 TurnTheVolume Turn the volume {volume}
 TurnTheVolume Turn {volume} the volume
 SetLocation Set location to {location}
 SetLocation I am in {location}
-GetLocation What is the current location
-
+GetLocation Where am I
+GetLocation What is the location
 '''
 import boto3
 from boto3.dynamodb.conditions import Key
@@ -261,7 +273,18 @@ def intent_request(session, request):
         shuffle_number = object.get()['Body'].read()
         object.put(Body=new_shuffle_number)
 
-        output_speech = "The shuffle_number is currently {} and will be changed to {}".format(shuffle_number, new_shuffle_number)
+        output_speech = "The shuffle number is currently {} and will be changed to {}".format(shuffle_number, new_shuffle_number)
+
+        response = {'outputSpeech': {'type':'PlainText','text':output_speech},'shouldEndSession':True}
+        return response
+
+    elif intent == "GetShuffleNumber":
+
+        s3 = boto3.resource('s3')
+        object = s3.Object('sonos-scrobble','shuffle_number')
+        shuffle_number = object.get()['Body'].read()
+
+        output_speech = "The shuffle number is currently {}".format(shuffle_number)
 
         response = {'outputSpeech': {'type':'PlainText','text':output_speech},'shouldEndSession':True}
         return response
