@@ -126,11 +126,14 @@ def intent_request(session, request):
 
     elif intent ==  "Shuffle":
 
-        number = 8
+        s3 = boto3.resource('s3')
+        object = s3.Object('sonos-scrobble','shuffle_number')
+        shuffle_number = int(object.get()['Body'].read())
+        #number = 8
         artist = request['intent']['slots']['myartist']['value']
-        send_sqs(action='shuffle', artist=artist, number=number)
+        send_sqs(action='shuffle', artist=artist, number=shuffle_number)
 
-        output_speech = "I will select " + str(number) + " songs from " + artist
+        output_speech = "I will select " + str(shuffle_number) + " songs from " + artist
         response = {'outputSpeech': {'type':'PlainText','text':output_speech},'shouldEndSession':True}
         return response
 
@@ -246,6 +249,19 @@ def intent_request(session, request):
         location = object.get()['Body'].read()
 
         output_speech = "The location is currently {}".format("New York City" if location == 'nyc' else "Westport, Connecticut")
+
+        response = {'outputSpeech': {'type':'PlainText','text':output_speech},'shouldEndSession':True}
+        return response
+
+    elif intent == "SetShuffleNumber":
+
+        new_shuffle_number = request['intent']['slots']['mynumber']['value']
+        s3 = boto3.resource('s3')
+        object = s3.Object('sonos-scrobble','shuffle_number')
+        shuffle_number = object.get()['Body'].read()
+        object.put(Body=new_shuffle_number)
+
+        output_speech = "The shuffle_number is currently {} and will be changed to {}".format(shuffle_number, new_shuffle_number)
 
         response = {'outputSpeech': {'type':'PlainText','text':output_speech},'shouldEndSession':True}
         return response
