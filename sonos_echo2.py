@@ -1,4 +1,6 @@
 '''
+Requires pysolr.py, config.py, requests - note pysolr.py needs requests
+Below are the Alexa intents
 PlayStation play {mystation} radio
 PlayStation play {mystation} pandora
 PlayStation play {mystation} station
@@ -36,8 +38,12 @@ from boto3.dynamodb.conditions import Key
 import json
 from decimal import Decimal
 import time
+import pysolr
+import config as c
 
 appVersion = '1.0'
+
+solr = pysolr.Solr(c.ec_uri+':8983/solr/sonos_companion/', timeout=10)
 
 def send_sqs(**kw):
 
@@ -94,46 +100,58 @@ def intent_request(session, request):
 
     elif intent ==  "PlayAlbum":
 
-        album = request['intent']['slots']['myalbum']['value']
-        send_sqs(action='play_album', album=album)
+        album = request['intent']['slots']['myalbum'].get('value', '')
+        print "album=",album
+        if album:
+            s = 'album:' + ' AND album:'.join(album.split())
+            result = solr.search(s, fl='uri,album', rows=25) #**{'rows':25}) #only brings back actual matches but 25 seems like max for most albums
+            uris = [t['uri'] for t in result.docs if t.get('uri')]
+            album_titles = [t['album'] for t in result.docs]
+            album_titles =list(set(album_titles))
+            if uris:
+                send_sqs(action='play_album', uris=uris)
+                output_speech = "I will play {} songs from album {}".format(len(uris), ', '.join(album_titles))
+                end_session = True
+            else:
+                output_speech = "I couldn't find the album {}. Try again.".format(album)
+                end_session = False
 
-        output_speech = "I will try to play album " + album + "."
-        response = {'outputSpeech': {'type':'PlainText','text':output_speech},'shouldEndSession':True}
+        else:
+            output_speech = "I couldn't find the album. Try again."
+            end_session = False
+
+        response = {'outputSpeech': {'type':'PlainText','text':output_speech},'shouldEndSession':end_session}
         return response
 
     elif intent ==  "PlayTrack" or intent == "AddTrack":
         # idea is that artist may be missing, eg, 'play campaigner' v. 'play campaigner by neil young'
-        # I think I should experiment with passing artist and title separately and not together although 
-        # working reasonably well.  All this goes for add track too.
-        try:
-            artist = request['intent']['slots']['myartist']['value']
-        except KeyError:
-            artist = ''
 
-        title = request['intent']['slots']['mytitle']['value']
-        #trackinfo = "{} {}".format(artist, title)
-        #send_sqs(action='play', trackinfo=trackinfo)
-        action = 'play' if intent=="PlayTrack" else 'add'
-        send_sqs(action=action, title=title, artist=artist)
+        artist = request['intent']['slots']['myartist'].get('value', '')
+        title = request['intent']['slots']['mytitle'].get('value', '')
+        print "artist=",artist
+        print "title=",title
 
-        #output_speech = "I will try to play " + trackinfo + "."
-        output_speech = "I will try to play {}".format(title) + (" by {}".format(artist) if artist else '')
-        response = {'outputSpeech': {'type':'PlainText','text':output_speech},'shouldEndSession':True}
-        return response
+        if title:
+            s = 'title:' + ' AND title:'.join(title.split())
+            if artist:
+                s = s + ' artist:' + ' AND artist:'.join(artist.split())
 
-    elif intent ==  "AddTrackzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz":
+            result = solr.search(s, rows=1) #**{'rows':1})
+            if len(result):
+                track = result.docs[0]
+                action = 'play' if intent=="PlayTrack" else 'add'
+                send_sqs(action=action, uri=track['uri'])
 
-        try:
-            artist = request['intent']['slots']['myartist']['value']
-        except KeyError:
-            artist = ''
+                output_speech = "I will play {} by {} from album {}".format(track['title'], track['artist'], track['album'])
+                end_session = True
+            else:
+                output_speech = "I couldn't find the song {} by {}. Try again.".format(title,artist)
+                end_session = False
+        else:
+            output_speech = "I couldn't find the song. Try again."
+            end_session = False
 
-        title = request['intent']['slots']['mytitle']['value']
-        trackinfo = "{} {}".format(artist, title)
-        send_sqs(action='add', trackinfo=trackinfo)
-
-        output_speech = "I will try to add " + trackinfo + " to the queue."
-        response = {'outputSpeech': {'type':'PlainText','text':output_speech},'shouldEndSession':True}
+        response = {'outputSpeech': {'type':'PlainText','text':output_speech},'shouldEndSession':end_session}
         return response
 
     elif intent ==  "Shuffle":
