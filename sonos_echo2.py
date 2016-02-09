@@ -36,6 +36,7 @@ GetLocation What is the location
 import boto3
 from boto3.dynamodb.conditions import Key
 import json
+import random
 from decimal import Decimal
 import time
 import pysolr
@@ -98,7 +99,7 @@ def intent_request(session, request):
         response = {'outputSpeech': {'type':'PlainText','text':output_speech},'shouldEndSession':True}
         return response
 
-    elif intent ==  "PlayAlbum":
+    elif intent ==  "PlayAlbum" or intent == "AddAlbum":
 
         album = request['intent']['slots']['myalbum'].get('value', '')
         print "album=",album
@@ -106,10 +107,11 @@ def intent_request(session, request):
             s = 'album:' + ' AND album:'.join(album.split())
             result = solr.search(s, fl='uri,album', rows=25) #**{'rows':25}) #only brings back actual matches but 25 seems like max for most albums
             uris = [t['uri'] for t in result.docs if t.get('uri')]
-            album_titles = [t['album'] for t in result.docs]
-            album_titles =list(set(album_titles))
             if uris:
-                send_sqs(action='play_album', uris=uris)
+                action = 'play' if intent=="PlayAlbum" else 'add'
+                #send_sqs(action='play_album', uris=uris)
+                send_sqs(action=action, uris=uris)
+                album_titles =list(set([t['album'] for t in result.docs]))
                 output_speech = "I will play {} songs from album {}".format(len(uris), ', '.join(album_titles))
                 end_session = True
             else:
@@ -123,7 +125,7 @@ def intent_request(session, request):
         response = {'outputSpeech': {'type':'PlainText','text':output_speech},'shouldEndSession':end_session}
         return response
 
-    elif intent ==  "PlayTrack" or intent == "AddTrack":
+    elif intent == "PlayTrack" or intent == "AddTrack":
         # idea is that artist may be missing, eg, 'play campaigner' v. 'play campaigner by neil young'
 
         artist = request['intent']['slots']['myartist'].get('value', '')
@@ -140,7 +142,7 @@ def intent_request(session, request):
             if len(result):
                 track = result.docs[0]
                 action = 'play' if intent=="PlayTrack" else 'add'
-                send_sqs(action=action, uri=track['uri'])
+                send_sqs(action=action, uris=[track['uri']])
 
                 output_speech = "I will play {} by {} from album {}".format(track['title'], track['artist'], track['album'])
                 end_session = True
@@ -159,12 +161,36 @@ def intent_request(session, request):
         s3 = boto3.resource('s3')
         object = s3.Object('sonos-scrobble','shuffle_number')
         shuffle_number = int(object.get()['Body'].read())
-        #number = 8
-        artist = request['intent']['slots']['myartist']['value']
-        send_sqs(action='shuffle', artist=artist, number=shuffle_number)
 
-        output_speech = "I will select " + str(shuffle_number) + " songs from " + artist
-        response = {'outputSpeech': {'type':'PlainText','text':output_speech},'shouldEndSession':True}
+        artist = request['intent']['slots']['myartist'].get('value')
+        if artist:
+            s = 'artist:' + ' AND artist:'.join(artist.split())
+            result = solr.search(s, fl='uri', rows=500) 
+            count = len(result)
+            if count:
+                print "Total track count for {} was {}".format(artist, count)
+                tracks = result.docs
+                k = shuffle_number if shuffle_number <= count else count
+                uris = []
+                for j in range(k):
+                    while 1:
+                        n = random.randint(0, count-1) if count > shuffle_number else j
+                        uri = tracks[n]['uri']
+                        if not uri in uris:
+                            uris.append(uri)
+                            break
+
+                send_sqs(action='play', uris=uris)
+                output_speech = "I will play {} songs by {}.".format(shuffle_number, artist)
+                end_session = True
+            else:
+                output_speech = "The artist {} didn't have any songs.".format(artist)
+                end_session = False
+        else:
+            output_speech = "I couldn't find the artist you were looking for. Try again."
+            end_session = False
+
+        response = {'outputSpeech': {'type':'PlainText','text':output_speech},'shouldEndSession':end_session}
         return response
 
     elif intent ==  "Deborah": # not in use
