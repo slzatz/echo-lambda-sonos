@@ -23,6 +23,8 @@ Skip skip song
 Skip next song
 PlayAlbum play album {myalbum}
 PlayAlbum play the album {myalbum}
+AddAlbum add album {myalbum}
+AddAlbum add the album {myalbum}
 PauseResume {pauseorresume} the music
 PauseResume {pauseorresume} the radio
 PauseResume {pauseorresume} sonos
@@ -102,11 +104,14 @@ def intent_request(session, request):
     elif intent ==  "PlayAlbum" or intent == "AddAlbum":
 
         album = request['intent']['slots']['myalbum'].get('value', '')
-        print "album=",album
+        print "album =",album
         if album:
             s = 'album:' + ' AND album:'.join(album.split())
-            result = solr.search(s, fl='uri,album', rows=25) #**{'rows':25}) #only brings back actual matches but 25 seems like max for most albums
-            uris = [t['uri'] for t in result.docs if t.get('uri')]
+            result = solr.search(s, fl='track,uri,album', rows=25) #**{'rows':25}) #only brings back actual matches but 25 seems like max for most albums
+            tracks = [(t.get('track',0),t['uri']) for t in result.docs]
+            tracks.sort()
+            uris = [t[1] for t in tracks]
+            #uris = [t['uri'] for t in result.docs if t.get('uri')]
             if uris:
                 action = 'play' if intent=="PlayAlbum" else 'add'
                 #send_sqs(action='play_album', uris=uris)
@@ -126,12 +131,12 @@ def intent_request(session, request):
         return response
 
     elif intent == "PlayTrack" or intent == "AddTrack":
-        # idea is that artist may be missing, eg, 'play campaigner' v. 'play campaigner by neil young'
+        # title must be present; artist is optional
 
         artist = request['intent']['slots']['myartist'].get('value', '')
         title = request['intent']['slots']['mytitle'].get('value', '')
-        print "artist=",artist
-        print "title=",title
+        print "artist =",artist
+        print "title =",title
 
         if title:
             s = 'title:' + ' AND title:'.join(title.split())
