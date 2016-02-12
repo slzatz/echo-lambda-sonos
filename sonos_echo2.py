@@ -108,19 +108,21 @@ def intent_request(session, request):
         if album:
             s = 'album:' + ' AND album:'.join(album.split())
             result = solr.search(s, fl='track,uri,album', rows=25) #**{'rows':25}) #only brings back actual matches but 25 seems like max for most albums
-            tracks = [(t.get('track',0),t['uri']) for t in result.docs]
-            tracks.sort()
-            uris = [t[1] for t in tracks]
-            #uris = [t['uri'] for t in result.docs if t.get('uri')]
-            if uris:
+            albums = set([t['album'] for t in result.docs])
+            if  albums:
+                if len(albums) > 1:
+                    tracks = [(t['album']+chr(t.get('track',0)),t['uri']) for t in result.docs]
+                else:
+                    tracks = [(t.get('track',0),t['uri']) for t in result.docs]
+
+                tracks.sort()
+                uris = [t[1] for t in tracks]
                 action = 'play' if intent=="PlayAlbum" else 'add'
-                #send_sqs(action='play_album', uris=uris)
                 send_sqs(action=action, uris=uris)
-                album_titles =list(set([t['album'] for t in result.docs]))
-                output_speech = "I will play {} songs from album {}".format(len(uris), ', '.join(album_titles))
+                output_speech = "I will play {} songs from {}".format(len(uris), ' and '.join(albums))
                 end_session = True
             else:
-                output_speech = "I couldn't find the album {}. Try again.".format(album)
+                output_speech = "I couldn't find {}. Try again.".format(album)
                 end_session = False
 
         else:
