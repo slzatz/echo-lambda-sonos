@@ -11,14 +11,15 @@ result = solr.search(s, fl='id,album,title', rows=25) #**{'rows':25}) #only brin
 tracks = result.docs
 for track in tracks:
     print "What is the track number for track {} from album {}".format(track['title'],track['album'])
-    n = raw_input("What is the track number? ")
-    n = int(n)
-    print "The track number asigned to {} is {}".format(track['title'],n)
-    print track['id']
-    url = c.ec_uri+":8983/solr/"+collection+"/update"
-    data = [{"id":track['id'], "track": {"set":n}}]
-    headers =  { "content-type" : "application/json" }
-    r = requests.post(url, json=data, headers=headers)
-    print r.json()
-    r = requests.post(url, data={"commit":"true"})
-    print r
+    n = raw_input("What is the track number? (if you want to skip this track just RETURN) ")
+    if n:
+        n = int(n)
+        print "The track number asigned to {} is {}".format(track['title'],n)
+        print track['id']
+        url = c.ec_uri+":8983/solr/"+collection+"/update"
+        data = [{"id":track['id'], "track": {"set":n}}]
+        headers =  { "content-type" : "application/json" }
+        r = requests.post(url, json=data, headers=headers)
+        print r.json()
+        r = requests.post(url, data={"commit":"true"})
+        print r
