@@ -39,6 +39,7 @@ import boto3
 from boto3.dynamodb.conditions import Key
 import json
 import random
+from operator import itemgetter 
 from decimal import Decimal
 import time
 import pysolr
@@ -107,19 +108,15 @@ def intent_request(session, request):
         print "album =",album
         if album:
             s = 'album:' + ' AND album:'.join(album.split())
-            result = solr.search(s, fl='track,uri,album', rows=25) #**{'rows':25}) #only brings back actual matches but 25 seems like max for most albums
-            albums = set([t['album'] for t in result.docs])
-            if  albums:
-                if len(albums) > 1:
-                    tracks = [(t['album']+chr(t.get('track',0)),t['uri']) for t in result.docs]
-                else:
-                    tracks = [(t.get('track',0),t['uri']) for t in result.docs]
-
-                tracks.sort()
-                uris = [t[1] for t in tracks]
+            result = solr.search(s, fl='score,track,uri,album', sort='score desc', rows=25) #**{'rows':25}) #only brings back actual matches but 25 seems like max for most albums
+            if  result.docs:
+                selected_album = result.docs[0]['album']
+                tracks = sorted([t for t in result.docs],key=itemgetter('track'))
+                # The if t['album']==selected_album only comes into play if we retrieved more than one album
+                uris = [t['uri'] for t in tracks if t['album']==selected_album]
                 action = 'play' if intent=="PlayAlbum" else 'add'
                 send_sqs(action=action, uris=uris)
-                output_speech = "I will play {} songs from {}".format(len(uris), ' and '.join(albums))
+                output_speech = "I will play {} songs from {}".format(len(uris), selected_album)
                 end_session = True
             else:
                 output_speech = "I couldn't find {}. Try again.".format(album)
