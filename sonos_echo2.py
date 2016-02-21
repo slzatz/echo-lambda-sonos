@@ -36,6 +36,7 @@ GetLocation Where am I
 GetLocation What is the location
 '''
 import boto3
+import botocore
 from boto3.dynamodb.conditions import Key
 import json
 import random
@@ -160,6 +161,36 @@ def intent_request(session, request):
         response = {'outputSpeech': {'type':'PlainText','text':output_speech},'shouldEndSession':end_session}
         return response
 
+    elif intent == "PlayPlaylist" or intent == "AddPlaylist":
+        playlist_name = request['intent']['slots']['myplaylist'].get('value', '')
+        playlist_name = playlist_name.title()
+        print playlist_name
+        s3 = boto3.resource('s3')
+        object = s3.Object('sonos-scrobble','playlists/'+playlist_name)
+        try:
+            z = object.get()['Body'].read()
+        except botocore.exceptions.ClientError as e:
+            if e.response['Error']['Code'] == "NoSuchKey":
+                exists = False
+            else:
+                raise e
+        else:
+            exists = True
+        
+        if exists:
+            playlist = json.loads(z)
+            uris = [x[1] for x in playlist]
+            action = 'play' if intent=="PlayPlaylist" else 'add'
+            send_sqs(action=action, uris=uris)
+            output_speech = "I will {} playlist {} ".format(action, playlist_name)
+            end_session = True
+        else:
+            output_speech = "I couldn't find the playlist. Try again."
+            end_session = False
+
+        response = {'outputSpeech': {'type':'PlainText','text':output_speech},'shouldEndSession':end_session}
+        return response
+
     elif intent ==  "Shuffle":
 
         s3 = boto3.resource('s3')
@@ -204,6 +235,52 @@ def intent_request(session, request):
 
         output_speech = "I will play " + str(number) + " of Deborah's albums"
         response = {'outputSpeech': {'type':'PlainText','text':output_speech},'shouldEndSession':True}
+        return response
+
+    elif intent == "ListPlaylists":
+        s3 = boto3.resource('s3')
+        bucket = s3.Bucket('sonos-scrobble')
+        z = bucket.objects.filter(Prefix='playlists/')
+        playlists = filter(None, [x.key.split('/')[1] for x in z.all()])
+        s = ', '.join(playlists)
+        output_speech = "The playlists that currently exist are: {}".format(s)
+        response = {'outputSpeech': {'type':'PlainText','text':output_speech},'shouldEndSession':True}
+        return response
+
+    elif intent == "WhichTracks":
+
+        #collection = request['intent']['slots']['mycollection'].get('value', '')
+        playlist_name = request['intent']['slots']['myplaylist'].get('value', '')
+        playlist_name = playlist_name.title()
+        print playlist_name
+        s3 = boto3.resource('s3')
+        object = s3.Object('sonos-scrobble','playlists/'+playlist_name)
+        try:
+            z = object.get()['Body'].read()
+        except botocore.exceptions.ClientError as e:
+            if e.response['Error']['Code'] == "NoSuchKey":
+                exists = False
+            else:
+                raise e
+        else:
+            exists = True
+        
+        if exists:
+            playlist = json.loads(z)
+            ids = ['"{}"'.format(x[0]) for x in playlist] #" are necessary I suspect because of non-a-z characters like (
+            s = 'id:' + ' id:'.join(ids)
+            print s
+            result = solr.search(s, fl='title,uri,album,artist', rows=25) #**{'rows':25}) #only brings back actual matches but 25 seems like max for most albums
+            tracks = [t['title'] + ' from ' + t['album'] + ' by ' + t['artist'] for t in result.docs]
+            #uris = [x[1] for x in playlist]
+            s = ', '.join(tracks)
+            output_speech = "Playlist {} includes {}".format(playlist_name, s)
+            end_session = True
+        else:
+            output_speech = "I couldn't find the playlist. Try again."
+            end_session = False
+
+        response = {'outputSpeech': {'type':'PlainText','text':output_speech},'shouldEndSession':end_session}
         return response
 
     elif intent == "WhatIsPlaying":
