@@ -274,6 +274,7 @@ def intent_request(session, request):
             tracks = [t['title'] + ' from ' + t['album'] + ' by ' + t['artist'] for t in result.docs]
             #uris = [x[1] for x in playlist]
             s = ', '.join(tracks)
+            s = s.replace('&', 'and') #Alexa doesn't like to speak an ampersand
             output_speech = "Playlist {} includes {}".format(playlist_name, s)
             end_session = True
         else:
