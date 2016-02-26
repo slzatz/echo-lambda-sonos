@@ -44,11 +44,14 @@ from operator import itemgetter
 from decimal import Decimal
 import time
 import pysolr
-import config as c
+import requests
+from config import ec_uri, last_fm_api_key
+#last.fm 
+base_url = "http://ws.audioscrobbler.com/2.0/"
 
 appVersion = '1.0'
 
-solr = pysolr.Solr(c.ec_uri+':8983/solr/sonos_companion/', timeout=10)
+solr = pysolr.Solr(ec_uri+':8983/solr/sonos_companion/', timeout=10)
 
 def send_sqs(**kw):
 
@@ -302,6 +305,43 @@ def intent_request(session, request):
                 output_speech = "Nothing appears to be playing right now, Steve"
         else:
             output_speech = "It appears that nothing has ever been scrobbled"
+
+        response = {'outputSpeech': {'type':'PlainText','text':output_speech},'shouldEndSession':True}
+        return response
+
+    elif intent == "RecentTracks":
+
+        payload = {'method':'user.getRecentTracks', 'user':'slzatz', 'format':'json', 'api_key':last_fm_api_key, 'from':int(time.time())-604800, 'limit':6}
+        
+        try:
+            r = requests.get(base_url, params=payload)
+            z = r.json()['recenttracks']['track']
+        except Exception as e:
+            print "Exception in get_scrobble_info: ", e
+            z = []
+
+        if z:
+            dic = {}
+            for d in z:
+                dic[d['album']['#text']+'_'+d['name']] = dic.get(d['album']['#text']+'_'+d['name'],0) + 1
+
+            a = sorted(dic.items(), key=lambda x:(x[1],x[0]), reverse=True) 
+            current_album = ''
+            output_speech = ''
+            for t in a:
+                album,track = t[0].split('_')
+                if current_album == album:
+                    line = ", {} ".format(track)
+                else:
+                    line = ". From {}, {} ".format(album,track)
+                    current_album = album
+                #track = 'From ' + ', track: '.join(t[0].split('_')) + ', ' 
+                #output_speech+=track + str(t[1]) + ' plays. ' if t[1]>1 else track + '. '
+                output_speech+=line + str(t[1]) + " plays" if t[1]>1 else line
+
+
+        else:
+            output_speech = "I could  not retrieve recently played tracks or there aren't any."
 
         response = {'outputSpeech': {'type':'PlainText','text':output_speech},'shouldEndSession':True}
         return response
