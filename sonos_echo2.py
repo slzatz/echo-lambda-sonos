@@ -310,8 +310,8 @@ def intent_request(session, request):
         return response
 
     elif intent == "RecentTracks":
-
-        payload = {'method':'user.getRecentTracks', 'user':'slzatz', 'format':'json', 'api_key':last_fm_api_key, 'from':int(time.time())-604800, 'limit':6}
+        # right now look back is one week; note can't limit because you need all the tracks since we're doing the frequency count
+        payload = {'method':'user.getRecentTracks', 'user':'slzatz', 'format':'json', 'api_key':last_fm_api_key, 'from':int(time.time())-604800} #, 'limit':10}
         
         try:
             r = requests.get(base_url, params=payload)
@@ -326,19 +326,26 @@ def intent_request(session, request):
                 dic[d['album']['#text']+'_'+d['name']] = dic.get(d['album']['#text']+'_'+d['name'],0) + 1
 
             a = sorted(dic.items(), key=lambda x:(x[1],x[0]), reverse=True) 
+
             current_album = ''
-            output_speech = ''
-            for t in a:
-                album,track = t[0].split('_')
+            output_speech = "During the last week you listened to the following tracks"
+            # if you wanted to limit the number of tracks that were reported on, could do it here
+            for album_track,count in a: #[:10]
+                album,track = album_track.split('_')
                 if current_album == album:
                     line = ", {} ".format(track)
                 else:
                     line = ". From {}, {} ".format(album,track)
                     current_album = album
-                #track = 'From ' + ', track: '.join(t[0].split('_')) + ', ' 
-                #output_speech+=track + str(t[1]) + ' plays. ' if t[1]>1 else track + '. '
-                output_speech+=line + str(t[1]) + " plays" if t[1]>1 else line
+                
+                if count==1:
+                    count_phrase = ""
+                elif count==2:
+                    count_phrase = "twice"
+                else:
+                    count_phrase = str(count)+" times"
 
+                output_speech += line + count_phrase
 
         else:
             output_speech = "I could  not retrieve recently played tracks or there aren't any."
