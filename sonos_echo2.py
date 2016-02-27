@@ -166,7 +166,7 @@ def intent_request(session, request):
 
     elif intent == "PlayPlaylist" or intent == "AddPlaylist":
         playlist_name = request['intent']['slots']['myplaylist'].get('value', '')
-        playlist_name = playlist_name.title()
+        playlist_name = playlist_name.lower()
         print playlist_name
         s3 = boto3.resource('s3')
         object = s3.Object('sonos-scrobble','playlists/'+playlist_name)
