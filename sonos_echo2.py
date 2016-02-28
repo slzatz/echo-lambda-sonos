@@ -166,21 +166,26 @@ def intent_request(session, request):
 
     elif intent == "PlayPlaylist" or intent == "AddPlaylist":
         playlist_name = request['intent']['slots']['myplaylist'].get('value', '')
-        playlist_name = playlist_name.lower()
-        print playlist_name
-        s3 = boto3.resource('s3')
-        object = s3.Object('sonos-scrobble','playlists/'+playlist_name)
-        try:
-            z = object.get()['Body'].read()
-        except botocore.exceptions.ClientError as e:
-            if e.response['Error']['Code'] == "NoSuchKey":
-                exists = False
-            else:
-                raise e
-        else:
-            exists = True
-        
-        if exists:
+        if playlist_name:
+            playlist_name = playlist_name.lower()
+            print "alexa heard:",playlist_name
+            s3 = boto3.resource('s3')
+            object = s3.Object('sonos-scrobble','playlists/'+playlist_name)
+            try:
+                z = object.get()['Body'].read()
+            except botocore.exceptions.ClientError as e:
+                if e.response['Error']['Code'] == "NoSuchKey":
+                    import difflib
+                    bucket = s3.Bucket('sonos-scrobble')
+                    a = [x.key[10:] for x in bucket.objects.all() if x.key.startswith('playlists/')]
+                    zz = sorted(a, key=lambda x: difflib.SequenceMatcher(None, x, playlist_name).ratio(), reverse=True)
+                    playlist_name = zz[0]
+                    print "There was no exact match but best match was:", playlist_name
+                    object = s3.Object('sonos-scrobble','playlists/'+playlist_name)
+                    z = object.get()['Body'].read()
+                else:
+                    raise e
+            
             playlist = json.loads(z)
             uris = [x[1] for x in playlist]
             action = 'play' if intent=="PlayPlaylist" else 'add'
