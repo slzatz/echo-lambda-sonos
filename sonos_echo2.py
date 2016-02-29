@@ -170,18 +170,19 @@ def intent_request(session, request):
             playlist_name = playlist_name.lower()
             print "alexa heard:",playlist_name
             s3 = boto3.resource('s3')
-            object = s3.Object('sonos-scrobble','playlists/'+playlist_name)
+            object = s3.Object('sonos-playlists', playlist_name)
             try:
                 z = object.get()['Body'].read()
             except botocore.exceptions.ClientError as e:
                 if e.response['Error']['Code'] == "NoSuchKey":
                     import difflib
-                    bucket = s3.Bucket('sonos-scrobble')
-                    a = [x.key[10:] for x in bucket.objects.all() if x.key.startswith('playlists/')]
+                    bucket = s3.Bucket('sonos-playlists')
+                    #a = [x.key[10:] for x in bucket.objects.all() if x.key.startswith('playlists/')]
+                    a = [x.key for x in bucket.objects.all()]
                     zz = sorted(a, key=lambda x: difflib.SequenceMatcher(None, x, playlist_name).ratio(), reverse=True)
                     playlist_name = zz[0]
                     print "There was no exact match but best match was:", playlist_name
-                    object = s3.Object('sonos-scrobble','playlists/'+playlist_name)
+                    object = s3.Object('sonos-playlists', playlist_name)
                     z = object.get()['Body'].read()
                 else:
                     raise e
@@ -246,10 +247,12 @@ def intent_request(session, request):
         return response
 
     elif intent == "ListPlaylists":
+
         s3 = boto3.resource('s3')
-        bucket = s3.Bucket('sonos-scrobble')
-        z = bucket.objects.filter(Prefix='playlists/')
-        playlists = filter(None, [x.key.split('/')[1] for x in z.all()])
+        bucket = s3.Bucket('sonos-playlists')
+        playlists = [x.key for x in bucket.objects.all()]
+        #z = bucket.objects.filter(Prefix='playlists/')
+        #playlists = filter(None, [x.key.split('/')[1] for x in z.all()])
         s = ', '.join(playlists)
         output_speech = "The playlists that currently exist are: {}".format(s)
         response = {'outputSpeech': {'type':'PlainText','text':output_speech},'shouldEndSession':True}
@@ -257,30 +260,33 @@ def intent_request(session, request):
 
     elif intent == "WhichTracks":
 
-        #collection = request['intent']['slots']['mycollection'].get('value', '')
         playlist_name = request['intent']['slots']['myplaylist'].get('value', '')
-        playlist_name = playlist_name.title()
-        print playlist_name
-        s3 = boto3.resource('s3')
-        object = s3.Object('sonos-scrobble','playlists/'+playlist_name)
-        try:
-            z = object.get()['Body'].read()
-        except botocore.exceptions.ClientError as e:
-            if e.response['Error']['Code'] == "NoSuchKey":
-                exists = False
-            else:
-                raise e
-        else:
-            exists = True
-        
-        if exists:
+        if playlist_name:
+            playlist_name = playlist_name.lower()
+            print "alexa heard:",playlist_name
+            s3 = boto3.resource('s3')
+            object = s3.Object('sonos-playlists', playlist_name)
+            try:
+                z = object.get()['Body'].read()
+            except botocore.exceptions.ClientError as e:
+                if e.response['Error']['Code'] == "NoSuchKey":
+                    import difflib
+                    bucket = s3.Bucket('sonos-playlists')
+                    a = [x.key for x in bucket.objects.all()]
+                    zz = sorted(a, key=lambda x: difflib.SequenceMatcher(None, x, playlist_name).ratio(), reverse=True)
+                    playlist_name = zz[0]
+                    print "There was no exact match but best match was:", playlist_name
+                    object = s3.Object('sonos-playlists', playlist_name)
+                    z = object.get()['Body'].read()
+                else:
+                    raise e
+            
             playlist = json.loads(z)
             ids = ['"{}"'.format(x[0]) for x in playlist] #" are necessary I suspect because of non-a-z characters like (
             s = 'id:' + ' id:'.join(ids)
             print s
             result = solr.search(s, fl='title,uri,album,artist', rows=25) #**{'rows':25}) #only brings back actual matches but 25 seems like max for most albums
             tracks = [t['title'] + ' from ' + t['album'] + ' by ' + t['artist'] for t in result.docs]
-            #uris = [x[1] for x in playlist]
             s = ', '.join(tracks)
             s = s.replace('&', 'and') #Alexa doesn't like to speak an ampersand
             output_speech = "Playlist {} includes {}".format(playlist_name, s)
