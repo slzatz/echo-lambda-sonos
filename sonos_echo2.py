@@ -61,8 +61,8 @@ def send_sqs(**kw):
     #body = response['Body']
 
     s3 = boto3.resource('s3')
-    object = s3.Object('sonos-scrobble','location')
-    location = object.get()['Body'].read()
+    obj = s3.Object('sonos-scrobble','location')
+    location = obj.get()['Body'].read()
     queue_name = 'echo_sonos_ct' if location=='ct' else 'echo_sonos'
 
     sqs = boto3.resource('sqs')
@@ -170,9 +170,9 @@ def intent_request(session, request):
             playlist_name = playlist_name.lower()
             print "alexa heard:",playlist_name
             s3 = boto3.resource('s3')
-            object = s3.Object('sonos-playlists', playlist_name)
+            obj = s3.Object('sonos-playlists', playlist_name)
             try:
-                z = object.get()['Body'].read()
+                z = obj.get()['Body'].read()
             except botocore.exceptions.ClientError as e:
                 if e.response['Error']['Code'] == "NoSuchKey":
                     import difflib
@@ -182,8 +182,8 @@ def intent_request(session, request):
                     zz = sorted(a, key=lambda x: difflib.SequenceMatcher(None, x, playlist_name).ratio(), reverse=True)
                     playlist_name = zz[0]
                     print "There was no exact match but best match was:", playlist_name
-                    object = s3.Object('sonos-playlists', playlist_name)
-                    z = object.get()['Body'].read()
+                    obj = s3.Object('sonos-playlists', playlist_name)
+                    z = obj.get()['Body'].read()
                 else:
                     raise e
             
@@ -203,8 +203,8 @@ def intent_request(session, request):
     elif intent ==  "Shuffle":
 
         s3 = boto3.resource('s3')
-        object = s3.Object('sonos-scrobble','shuffle_number')
-        shuffle_number = int(object.get()['Body'].read())
+        obj = s3.Object('sonos-scrobble','shuffle_number')
+        shuffle_number = int(obj.get()['Body'].read())
 
         artist = request['intent']['slots']['myartist'].get('value')
         if artist:
@@ -265,9 +265,9 @@ def intent_request(session, request):
             playlist_name = playlist_name.lower()
             print "alexa heard:",playlist_name
             s3 = boto3.resource('s3')
-            object = s3.Object('sonos-playlists', playlist_name)
+            obj = s3.Object('sonos-playlists', playlist_name)
             try:
-                z = object.get()['Body'].read()
+                z = obj.get()['Body'].read()
             except botocore.exceptions.ClientError as e:
                 if e.response['Error']['Code'] == "NoSuchKey":
                     import difflib
@@ -276,8 +276,8 @@ def intent_request(session, request):
                     zz = sorted(a, key=lambda x: difflib.SequenceMatcher(None, x, playlist_name).ratio(), reverse=True)
                     playlist_name = zz[0]
                     print "There was no exact match but best match was:", playlist_name
-                    object = s3.Object('sonos-playlists', playlist_name)
-                    z = object.get()['Body'].read()
+                    obj = s3.Object('sonos-playlists', playlist_name)
+                    z = obj.get()['Body'].read()
                 else:
                     raise e
             
@@ -420,16 +420,16 @@ def intent_request(session, request):
     elif intent == "SetLocation":
 
         s3 = boto3.resource('s3')
-        object = s3.Object('sonos-scrobble','location')
+        obj = s3.Object('sonos-scrobble','location')
 
         location = request['intent']['slots']['location']['value']
 
         if location.lower() in "new york city":
-            object.put(Body='nyc')
+            obj.put(Body='nyc')
             output_speech = "I will set the location to New York City"
 
         elif location.lower() in ('westport', 'connecticut'):
-            object.put(Body='ct')
+            obj.put(Body='ct')
             output_speech = "I will set the location to Connecticut"
 
         else:
@@ -441,8 +441,8 @@ def intent_request(session, request):
     elif intent == "GetLocation":
 
         s3 = boto3.resource('s3')
-        object = s3.Object('sonos-scrobble','location')
-        location = object.get()['Body'].read()
+        obj = s3.Object('sonos-scrobble','location')
+        location = obj.get()['Body'].read()
 
         output_speech = "The location is currently {}".format("New York City" if location == 'nyc' else "Westport, Connecticut")
 
@@ -453,9 +453,9 @@ def intent_request(session, request):
 
         new_shuffle_number = request['intent']['slots']['mynumber']['value']
         s3 = boto3.resource('s3')
-        object = s3.Object('sonos-scrobble','shuffle_number')
-        shuffle_number = object.get()['Body'].read()
-        object.put(Body=new_shuffle_number)
+        obj = s3.Object('sonos-scrobble','shuffle_number')
+        shuffle_number = obj.get()['Body'].read()
+        obj.put(Body=new_shuffle_number)
 
         output_speech = "The shuffle number is currently {} and will be changed to {}".format(shuffle_number, new_shuffle_number)
 
@@ -465,8 +465,8 @@ def intent_request(session, request):
     elif intent == "GetShuffleNumber":
 
         s3 = boto3.resource('s3')
-        object = s3.Object('sonos-scrobble','shuffle_number')
-        shuffle_number = object.get()['Body'].read()
+        obj = s3.Object('sonos-scrobble','shuffle_number')
+        shuffle_number = obj.get()['Body'].read()
 
         output_speech = "The shuffle number is currently {}".format(shuffle_number)
 
