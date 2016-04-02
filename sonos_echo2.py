@@ -45,7 +45,10 @@ from decimal import Decimal
 import time
 import pysolr
 import requests
+import paho.mqtt.publish as mqtt_publish
+#import paho.mqtt.client as mqtt #################################
 from config import ec_uri, last_fm_api_key
+
 #last.fm 
 base_url = "http://ws.audioscrobbler.com/2.0/"
 
@@ -63,12 +66,20 @@ def send_sqs(**kw):
     s3 = boto3.resource('s3')
     obj = s3.Object('sonos-scrobble','location')
     location = obj.get()['Body'].read()
-    queue_name = 'echo_sonos_ct' if location=='ct' else 'echo_sonos'
 
-    sqs = boto3.resource('sqs')
-    # below is the action queue; may also need storage queue or use S3, e.g., echo_sonos_history
-    queue = sqs.get_queue_by_name(QueueName=queue_name)
-    sqs_response = queue.send_message(MessageBody=json.dumps(kw))
+    # The below was commented out when it switched to mqtt
+    #queue_name = 'echo_sonos_ct' if location=='ct' else 'echo_sonos'
+
+    #sqs = boto3.resource('sqs')
+    ## below is the action queue; may also need storage queue or use S3, e.g., echo_sonos_history
+    #queue = sqs.get_queue_by_name(QueueName=queue_name)
+    #sqs_response = queue.send_message(MessageBody=json.dumps(kw))
+
+    #client = mqtt.Client() ################################################
+    #client.connect(ec_uri[7:], 1883, 60) ######################################
+    #client.publish('sonos/'+location, json.dumps(kw)) ##############################
+    #client.disconnect()
+    mqtt_publish.single('sonos/'+location, json.dumps(kw), hostname=ec_uri[7:], retain=False, port=1883, keepalive=60)
 
 def lambda_handler(event, context):
     session = event['session']
@@ -398,9 +409,9 @@ def intent_request(session, request):
 
         volume = request['intent']['slots']['volume']['value']
 
-        if volume in ('louder','higher','up'):
+        if volume in ('increase','louder','higher','up'):
             action = 'louder'
-        elif volume in ('down','quieter','lower'):
+        elif volume in ('decrease', 'down','quieter','lower'):
             action = 'quieter'
         else:
             action = None
